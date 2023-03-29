@@ -29,6 +29,8 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   parse_server_sdk: ^4.0.1
+  image_picker: ^0.8.7
+  flutter_map: ^3.1.0
   flutter:
     sdk: flutter
 

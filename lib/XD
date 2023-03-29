@@ -1,9 +1,73 @@
 import 'package:flutter/material.dart';
 import 'package:parse_server_sdk/parse_server_sdk.dart';
+import 'photo.dart';
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final keyApplicationId = 'uq3mIDo6JrLvcUXVIr8PUU56gTXbMFtqM2kuPPga';
+  final keyClientKey = 'jcYVbSnDf2phLSJJV4RYMb3LgU2t84KUb6vOV0Ge';
+  final keyParseServerUrl = 'https://parseapi.back4app.com';
 
 
+  await Parse().initialize(keyApplicationId, keyParseServerUrl,
+      clientKey: keyClientKey,
+      debug: true);
 
+  runApp(MyApp());
+}
 
+class MyApp extends StatelessWidget {
+  Future<bool> hasUserLogged() async {
+    ParseUser? currentUser = await ParseUser.currentUser() as ParseUser?;
+    if (currentUser == null) {
+      return false;
+    }
+    //Checks whether the user's session token is valid
+    final ParseResponse? parseResponse =
+    await ParseUser.getCurrentUserFromServer(currentUser.sessionToken!);
+
+    if (parseResponse?.success == null || !parseResponse!.success) {
+      //Invalid session. Logout
+      await currentUser.logout();
+      return false;
+    } else {
+      return true;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Flutter',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
+      home: FutureBuilder<bool>(
+          future: hasUserLogged(),
+          builder: (context, snapshot) {
+            switch (snapshot.connectionState) {
+              case ConnectionState.none:
+              case ConnectionState.waiting:
+                return Scaffold(
+                  body: Center(
+                    child: Container(
+                        width: 100,
+                        height: 100,
+                        child: CircularProgressIndicator()),
+                  ),
+                );
+              default:
+                if (snapshot.hasData && snapshot.data!) {
+                  return UserPage();
+                } else {
+                  return LoginPage();
+                }
+            }
+          }),
+    );
+  }
+}
 
 class LoginPage extends StatefulWidget {
   @override
@@ -27,16 +91,6 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  height: 200,
-                  child: Image.network(
-                      'https://blog.back4app.com/wp-content/uploads/2017/11/logo-b4a-1-768x175-1.png'),
-                ),
-                Center(
-                  child: const Text('Flutter on Back4App',
-                      style:
-                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
                 SizedBox(
                   height: 16,
                 ),
@@ -86,16 +140,6 @@ class _LoginPageState extends State<LoginPage> {
                     onPressed: () => navigateToSignUp(),
                   ),
                 ),
-                SizedBox(
-                  height: 16,
-                ),
-                Container(
-                  height: 50,
-                  child: ElevatedButton(
-                    child: const Text('Reset Password'),
-                    onPressed: () => navigateToResetPassword(),
-                  ),
-                )
               ],
             ),
           ),
@@ -131,13 +175,9 @@ class _LoginPageState extends State<LoginPage> {
       MaterialPageRoute(builder: (context) => SignUpPage()),
     );
   }
-
-  void navigateToResetPassword() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => ResetPasswordPage()),
-    );
   }
+
+
 }
 
 class SignUpPage extends StatefulWidget {
@@ -162,16 +202,6 @@ class _SignUpPageState extends State<SignUpPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  height: 200,
-                  child: Image.network(
-                      'https://blog.back4app.com/wp-content/uploads/2017/11/logo-b4a-1-768x175-1.png'),
-                ),
-                Center(
-                  child: const Text('Flutter on Back4App',
-                      style:
-                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
                 SizedBox(
                   height: 16,
                 ),
@@ -265,6 +295,8 @@ class UserPage extends StatelessWidget {
   ParseUser? currentUser;
 
   Future<ParseUser?> getUser() async {
+    currentUser = await ParseUser.currentUser() as ParseUser?;
+    return currentUser;
   }
 
   @override
@@ -321,6 +353,22 @@ class UserPage extends StatelessWidget {
                             child: const Text('Logout'),
                             onPressed: () => doUserLogout(),
                           ),
+
+                        ),
+                        SizedBox(
+                          height: 16,
+                        ),
+                        Container(
+                          height: 50,
+                          child: ElevatedButton(
+                            child: const Text('Add File'),
+                            onPressed: (){
+                              Navigator.of(context).push(MaterialPageRoute(
+                                  builder: (context) => photo();
+                              )
+                            },
+                          ),
+
                         ),
                       ],
                     ),
@@ -330,52 +378,6 @@ class UserPage extends StatelessWidget {
   }
 }
 
-class ResetPasswordPage extends StatefulWidget {
-  @override
-  _ResetPasswordPageState createState() => _ResetPasswordPageState();
-}
-
-class _ResetPasswordPageState extends State<ResetPasswordPage> {
-  final controllerEmail = TextEditingController();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-        appBar: AppBar(
-          title: Text('Reset Password'),
-        ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: controllerEmail,
-                keyboardType: TextInputType.emailAddress,
-                textCapitalization: TextCapitalization.none,
-                autocorrect: false,
-                decoration: InputDecoration(
-                    border: OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.black)),
-                    labelText: 'E-mail'),
-              ),
-              SizedBox(
-                height: 8,
-              ),
-              Container(
-                height: 50,
-                child: ElevatedButton(
-                  child: const Text('Reset Password'),
-                  onPressed: () => doUserResetPassword(),
-                ),
-              )
-            ],
-          ),
-        ));
-  }
-
-  void doUserResetPassword() async {}
-}
 
 class Message {
   static void showSuccess(
