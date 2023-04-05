@@ -1,12 +1,13 @@
 import 'dart:io';
-
+import 'package:camera/camera.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:parse_server_sdk/parse_server_sdk.dart';
+
+import 'camer_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,58 +32,20 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
 
-
   final Opis = TextEditingController();
   final Kategoria = TextEditingController();
 
   void doUserLogin() async {
     final Descriptrion = Opis.text.trim();
     final Category = Kategoria.text.trim();
-    final pickedFile = image;
 
-
-    final Dane = ParseObject("Zgloszenie")
+    final Dane = ParseObject("Zgłoszenie ")
       ..set("Opis",Descriptrion)
-      ..set("Kategoria",Category)
-
-
-    ;
-
-    await  Dane.save();
+      ..set("Kategoria",Category);
+      await  Dane.save();
 
 
   }
-  bool isLoading = false;
-  File? image;
-
-  Future pickImage() async {
-    try{
-      final image = await ImagePicker().pickImage(source: ImageSource.gallery);
-      if(image==null)return;
-      final imageTemp = File(image.path);
-
-      setState(() => this.image = imageTemp as File?);
-
-
-    }on PlatformException catch(e){
-      print("Nie udało się wybrać zdjęcia: $e");
-    }
-
-  }
-  Future pickImageC() async {
-    try{
-      final image = await ImagePicker().pickImage(source: ImageSource.camera);
-      if(image==null)return;
-      final imageTemp = File(image.path);
-
-      setState(() => this.image = imageTemp as File?);
-
-
-    }on PlatformException catch(e){
-      print("Nie udało się dodać zdjęcia : $e");
-    }
-  }
-
 
   List<String> items = [
     "Drogowe",
@@ -92,7 +55,7 @@ class _HomePageState extends State<HomePage> {
     "Inne"
   ];
   String? selectedItem = "Drogowe";
-
+  PickedFile? pickedFile;
 
   List<ParseObject> results = <ParseObject>[];
   double selectedDistance = 3000;
@@ -110,45 +73,38 @@ class _HomePageState extends State<HomePage> {
               ),
               Container(
                 height: 50,
-                child: Center(
 
-                    child: image != null ? Image.file(image! as File): Text("Nie wybrano jeszcze obrazu ")
+                child:Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.max,
 
+                    children:[
+                  ElevatedButton(
 
-
-                ),
-              ),
-
-              SizedBox(
-                height: 16,
-              ),
-              Container(
-                  height: 50,
-
-                  child:Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.max,
-
-                      children:[
-                        ElevatedButton(
-
-
-                            child: Text('Dodaj zdjęcie z galerii'),
-                            style: ElevatedButton.styleFrom(primary: Colors.blue,
-                            ),
-                            onPressed: () {
-                              pickImage();
-                            }
-                        ),
-                        ElevatedButton(
-                            child: Text('Zrób zdjęcie '),
-                            style: ElevatedButton.styleFrom(primary: Colors.blue,),
-                            onPressed: () async{
-                              pickImageC();
-
-                            }
-                        )
-                      ])
+                    child: Text('Dodaj zdjęcie z galerii'),
+                    style: ElevatedButton.styleFrom(primary: Colors.blue,
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => SavePage()),
+                      );
+                    },
+                  ),
+                  ElevatedButton(
+                    child: Text('Zrób zdjęcie '),
+                    style: ElevatedButton.styleFrom(primary: Colors.blue,),
+                    onPressed: () async{
+                      await availableCameras().then(
+                        (value) => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                               builder: (context) => CameraPage(cameras: value,),
+                        ))
+                      );
+                    },
+                  )
+                ])
 
 
               ),
@@ -167,14 +123,14 @@ class _HomePageState extends State<HomePage> {
                         value: selectedItem,
                         items: items
                             .map((item) => DropdownMenuItem<String>(
-                            value: item,
-                            child:Center(child:
-                            Text(item,textAlign:TextAlign.center, style: TextStyle(fontSize: 20,)),
-                            )))
+                          value: item,
+                          child:Center(child:
+                          Text(item,textAlign:TextAlign.center, style: TextStyle(fontSize: 20,)),
+                          )))
                             .toList(),
                         onChanged:(String? newValue) {
                           Kategoria.text = newValue!;
-                              (item) => setState(() => selectedItem = item);},
+                          (item) => setState(() => selectedItem = item);},
                       )))),
               SizedBox(
                 height: 16,
@@ -184,8 +140,8 @@ class _HomePageState extends State<HomePage> {
                 child: (
                     TextFormField(
                       textAlign: TextAlign.center,
-                      controller:Opis,
-                      decoration: InputDecoration(
+                        controller:Opis,
+                        decoration: InputDecoration(
                           hintText: "Dodaj opis zgłoszenia"
                       ),
                     )
@@ -201,10 +157,7 @@ class _HomePageState extends State<HomePage> {
                     ElevatedButton(
                       child: Text('Wyślij zgłoszenie'),
                       style: ElevatedButton.styleFrom(primary: Colors.blue),
-
-                      onPressed: () =>doUserLogin(
-
-                      ),
+                      onPressed: () =>doUserLogin(),
                     )
 
                 ),
@@ -216,8 +169,111 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+class SavePage extends StatefulWidget {
+  @override
+  _SavePageState createState() => _SavePageState();
+}
 
+class _SavePageState extends State<SavePage> {
+  PickedFile? pickedFile;
+  bool isLoading = false;
 
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Dodawanie zdjęcia'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(height: 16),
+            GestureDetector(
+              child: pickedFile != null
+                  ? Container(
+                  width: 250,
+                  height: 250,
+                  decoration:
+                  BoxDecoration(border: Border.all(color: Colors.blue)),
+                  child: kIsWeb
+                      ? Image.network(pickedFile!.path)
+                      : Image.file(File(pickedFile!.path)))
+                  : Container(
+                width: 250,
+                height: 250,
+                decoration:
+                BoxDecoration(border: Border.all(color: Colors.blue)),
+                child: Center(
+                  child: Text('Kliknij by wybrać'),
+                ),
+              ),
+              onTap: () async {
+                PickedFile? image =
+                await ImagePicker().getImage(source: ImageSource.gallery);
+
+                if (image != null) {
+                  setState(() {
+                    pickedFile = image;
+                  });
+                }
+              },
+            ),
+            SizedBox(height: 16),
+            Container(
+                height: 50,
+                child: ElevatedButton(
+                  child: Text('Dodaj zdjęcie'),
+                  style: ElevatedButton.styleFrom(primary: Colors.blue),
+                  onPressed: isLoading || pickedFile == null
+                      ? null
+                      : () async {
+                    setState(() {
+                      isLoading = true;
+                    });
+                    ParseFileBase? parseFile;
+
+                    if (kIsWeb) {
+                      //Flutter Web
+                      parseFile = ParseWebFile(
+                          await pickedFile!.readAsBytes(),
+                          name: 'image.jpg'); //Name for file is required
+                    } else {
+                      //Flutter Mobile/Desktop
+                      parseFile = ParseFile(File(pickedFile!.path));
+                    }
+                    await parseFile.save();
+
+                    final gallery = ParseObject('Gallery')
+                      ..set('file', parseFile);
+                    await gallery.save();
+
+                    setState(() {
+                      isLoading = false;
+                      pickedFile = null;
+                    });
+
+                    ScaffoldMessenger.of(context)
+                      ..removeCurrentSnackBar()
+                      ..showSnackBar(SnackBar(
+                        content: Text(
+                          'Pomyślnie dodano zdjęcie',
+                          style: TextStyle(
+                            color: Colors.white,
+                          ),
+                        ),
+                        duration: Duration(seconds: 3),
+                        backgroundColor: Colors.blue,
+                      ));
+                  },
+                ))
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 
 
