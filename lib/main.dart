@@ -1,100 +1,413 @@
+
+import 'dart:async';
+import 'dart:io';
+
+
+import 'package:flutter_osm_plugin/flutter_osm_plugin.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
-void main() => runApp(MapApp());
 
-class MapApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Map Example',
-      home: MapPage(),
-    );
-  }
+import 'package:image_picker/image_picker.dart';
+import 'package:parse_server_sdk/parse_server_sdk.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final keyApplicationId = 'uq3mIDo6JrLvcUXVIr8PUU56gTXbMFtqM2kuPPga';
+  final keyClientKey = 'jcYVbSnDf2phLSJJV4RYMb3LgU2t84KUb6vOV0Ge';
+  final keyParseServerUrl = 'https://parseapi.back4app.com';
+
+  await Parse().initialize(keyApplicationId, keyParseServerUrl,
+      clientKey: keyClientKey, debug: true);
+
+  runApp(MaterialApp(
+    title: 'Flutter - Storage File',
+    debugShowCheckedModeBanner: false,
+    home: HomePage(),
+  ));
 }
 
-class MapPage extends StatefulWidget {
+class HomePage extends StatefulWidget {
   @override
-  _MapPageState createState() => _MapPageState();
+  _HomePageState createState() => _HomePageState();
 }
 
-class _MapPageState extends State<MapPage> {
-  MapController mapController = MapController();
-  late LatLng markerLatLng;
-  late LatLng currentLocationLatLng;
+//
+// baza danych!!!!!!!!!!!!!!!!
+//
+class _HomePageState extends State<HomePage> {
 
+  final Opis = TextEditingController();
+  final Kategoria = TextEditingController();
 
-  Future<void> _getCurrentLocation() async {
-    Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
-    setState(() {
-      if(currentLocationLatLng==null) {
-        currentLocationLatLng =
-            LatLng(position.latitude, position.longitude);
-      }
-    else LatLng(0,0);});
-  }
-  void _addMarker(LatLng latLng) {
-    setState(() {
-      markerLatLng = latLng;
-    });
+  void doUserLogin() async {
+    final Descriptrion = Opis.text.trim();
+    final Category = Kategoria.text.trim();
+
+    final Dane = ParseObject("Zgloszenie")
+      ..set("Opis",Descriptrion)
+      ..set("Kategoria",Category);
+    await  Dane.save();
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _getCurrentLocation();
+  //Zdjęcia!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+  bool isLoading = false;
+  PickedFile? pickedFile;
+
+  var zmienna = 0;
+  Future state() async{
+    zmienna=zmienna+1;
+
   }
+
+
+//Lista
+
+  List<String> items = [
+    "Drogowe",
+    "Pogoda",
+    "Niebezpieczny obiekt",
+    "Zagospodarowanie terenu",
+    "Inne"
+  ];
+  String? selectedItem = "Drogowe";
+
+
+  List<ParseObject> results = <ParseObject>[];
+  double selectedDistance = 3000;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Map Example')),
-      body: FlutterMap(
-        mapController: mapController,
-        options: MapOptions(
-          center: currentLocationLatLng ?? LatLng(52.229675, 21.012230),
-          zoom: 13.0,
-          onTap: _addMarker,
-        ),
-        layers: [
-          TileLayerOptions(
-            urlTemplate:
-            'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-            subdomains: ['a', 'b', 'c'],
-          ),
-          MarkerLayerOptions(
-            markers: [
-              if (markerLatLng != null)
-                Marker(
-                  width: 40.0,
-                  height: 40.0,
-                  point: markerLatLng,
-                  builder: (ctx) => Container(
-                    child: Icon(Icons.location_pin, color: Colors.red),
-                  ),
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+
+              SizedBox(
+                height: 16,
+              ),
+
+              //Mapa
+
+              ElevatedButton(
+                child:Text("Wybierz miejsce zdarzenia"),
+                onPressed: () async{
+
+                  var markerMap = await showSimplePickerLocation(context: context,
+
+                      isDismissible: true,
+                      title: "Wybierz miejsce zdarzenia",
+                      textConfirmPicker: "Wybierz",
+                      initCurrentUserPosition: true,
+                      initZoom: 15
+                  );
+                },
+              ),
+
+              SizedBox(
+                height: 16,
+              ),
+              //Zdjęcia
+
+
+              SizedBox(
+                height: 16,
+              ),
+              Column(
+                children: [
+                  GestureDetector(
+                    child: pickedFile != null
+                        ? Container(
+                        width: 250,
+                        height: 250,
+                        decoration:
+                        BoxDecoration(border: Border.all(color: Colors.blue)),
+                        child: kIsWeb
+                            ? Image.network(pickedFile!.path)
+                            : Image.file(File(pickedFile!.path)))
+                        : Container(
+                      width: 150,
+                      height: 150,
+                      decoration:
+                      BoxDecoration(border: Border.all(color: Colors.blue)),
+                      child: Center(
+                        child: Text('Dodaj zdjęcie'),
+                      ),
+                    ),
+                    onTap: () async {
+
+
+                      /*  await  showDialog(context: context, builder: (context)=> AlertDialog(
+                            title: Text("Dodawanie zdjęcia"),
+                            actions: [
+                              ElevatedButton(onPressed:() async{pickImageC();
+                                Navigator.pop(context);},
+                                  child: Text('    Zrób zdjęice     ')),
+                              ElevatedButton(onPressed: () async{pickImage();Navigator.pop(context);
+
+                                }, child: Text('Zdjęcie z galerii'))
+                            ],
+
+                          ));
+*/
+
+                      await  showDialog(context: context, builder: (context)=> AlertDialog(
+                        title: Text("Dodawanie zdjęcia"),
+                        actions: [
+                          ElevatedButton(onPressed: () async {state(); Navigator.pop(context);
+                          }, child: Text('Zrób zdjęcie')),
+
+                          ElevatedButton(onPressed: () => Navigator.pop(context)
+                              , child: Text('Zdjęcie z galerii'))
+                        ],
+
+                      ));
+
+                      if(zmienna==1){
+                        PickedFile? image =
+                        await ImagePicker().getImage(source: ImageSource.camera);
+                        zmienna=zmienna-1;
+                        if (image != null) {
+                          setState(() {
+                            pickedFile = image;
+                          });
+                        }
+                      }else if(zmienna==0){
+
+                        PickedFile? image =
+                        await ImagePicker().getImage(source: ImageSource.gallery);
+
+                        if (image != null) {
+                          setState(() {
+                            pickedFile = image;
+                          });
+                        }
+                      }
+
+
+                    },
+
+                  )
+                ],
+
+              ),
+
+
+              SizedBox(
+                height: 16,
+              ),
+
+
+              Container(
+                  child: SizedBox(
+                      width: 240,
+                      height: 50,
+
+
+                      child:Center(child:
+                      DropdownButtonFormField(
+
+                        value: selectedItem,
+                        items: items
+                            .map((item) => DropdownMenuItem<String>(
+                            value: item,
+                            child:Center(child:
+                            Text(item,textAlign:TextAlign.center, style: TextStyle(fontSize: 20,)),
+                            )))
+                            .toList(),
+                        onChanged:(String? newValue) {
+                          Kategoria.text = newValue!;
+                              (item) => setState(() => selectedItem = item);},
+                      )))),
+              SizedBox(
+                height: 16,
+              ),
+              Container(
+                height: 50,
+                child: (
+                    TextFormField(
+                      textAlign: TextAlign.center,
+                      controller:Opis,
+                      decoration: InputDecoration(
+                          hintText: "Dodaj opis zgłoszenia"
+                      ),
+                    )
                 ),
-              if (currentLocationLatLng != null)
-                Marker(
-                  width: 40.0,
-                  height: 40.0,
-                  point: currentLocationLatLng,
-                  builder: (ctx) => Container(
-                    child: Icon(Icons.location_on, color: Colors.blue),
-                  ),
+
+
+              ),
+
+              SizedBox(
+                height: 16,
+              ),
+              Container(
+                height: 50,
+                child: (
+                    ElevatedButton(
+                      child: Text('Wyślij zgłoszenie'),
+                      style: ElevatedButton.styleFrom(primary: Colors.blue),
+
+                      onPressed:pickedFile == null? null:() async{setState(() {
+                        isLoading = true;
+                      });
+                      ParseFileBase? parseFile;
+                      if (kIsWeb){
+                        parseFile = ParseWebFile(await pickedFile!.readAsBytes(),
+                            name: "image.jpg");
+                      }else{
+                        parseFile = ParseFile(File(pickedFile!.path));
+                      }
+                      final Dane = ParseObject('Zgloszenie')
+                        ..set('file', parseFile);
+                      await Dane.save();doUserLogin(
+
+                      );
+
+
+                      },
+                    )
+
                 ),
+
+              ),
             ],
           ),
-        ],
-      ),
-    );
+        ));
   }
 }
 
-MarkerLayerOptions({required List<Marker> markers}) {
+
+
+
+
+
+class DisplayPage extends StatefulWidget {
+  @override
+  _DisplayPageState createState() => _DisplayPageState();
 }
 
-TileLayerOptions({required String urlTemplate, required List<String> subdomains}) {
+class _DisplayPageState extends State<DisplayPage> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Display Gallery"),
+      ),
+      body: FutureBuilder<List<ParseObject>>(
+          future: getGalleryList(),
+          builder: (context, snapshot) {
+            switch (snapshot.connectionState) {
+              case ConnectionState.none:
+              case ConnectionState.waiting:
+                return Center(
+                  child: Container(
+                      width: 100,
+                      height: 100,
+                      child: CircularProgressIndicator()),
+                );
+              default:
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text("Error! Zdjęcie nie zostało dodane!"),
+                  );
+                } else {
+                  return ListView.builder(
+                      padding: const EdgeInsets.only(top: 8),
+                      itemCount: snapshot.data!.length,
+                      itemBuilder: (context, index) {
+                        //Web/Mobile/Desktop
+                        ParseFileBase? varFile =
+                        snapshot.data![index].get<ParseFileBase>('file');
+
+                        //Only iOS/Android/Desktop
+                        /*
+                        ParseFile? varFile =
+                            snapshot.data![index].get<ParseFile>('file');
+                        */
+                        return Image.network(
+                          varFile!.url!,
+                          width: 200,
+                          height: 200,
+                          fit: BoxFit.fitHeight,
+                        );
+                      });
+                }
+            }
+          }),
+    );
+  }
+
+  Future<List<ParseObject>> getGalleryList() async {
+    QueryBuilder<ParseObject> queryPublisher =
+    QueryBuilder<ParseObject>(ParseObject('Gallery'))
+      ..orderByAscending('createdAt');
+    final ParseResponse apiResponse = await queryPublisher.query();
+
+    if (apiResponse.success && apiResponse.results != null) {
+      return apiResponse.results as List<ParseObject>;
+    } else {
+      return [];
+    }
+  }
+}
+
+class Message {
+  static void showSuccess(
+      {required BuildContext context,
+        required String message,
+        VoidCallback? onPressed}) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Success!"),
+          content: Text(message),
+          actions: <Widget>[
+            new ElevatedButton(
+              child: const Text("OK"),
+              onPressed: () {
+                Navigator.of(context).pop();
+                if (onPressed != null) {
+                  onPressed();
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  static void showError(
+      {required BuildContext context,
+        required String message,
+        VoidCallback? onPressed}) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Error!"),
+          content: Text(message),
+          actions: <Widget>[
+            new ElevatedButton(
+              child: const Text("OK"),
+              onPressed: () {
+                Navigator.of(context).pop();
+                if (onPressed != null) {
+                  onPressed();
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 }

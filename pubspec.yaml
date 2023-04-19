@@ -28,11 +28,17 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  get: any
+  flutter_osm_plugin: ^0.53.4
   latlong2: ^0.8.1
+  proj4dart: ^2.1.0
+  geocoding: ^2.1.0
+  location: ^4.4.0
   geolocator: ^9.0.2
   parse_server_sdk: ^4.0.1
   image_picker: ^0.8.7
   flutter_map: ^3.1.0
+  tuple: ^2.0.1
   flutter:
     sdk: flutter
 
