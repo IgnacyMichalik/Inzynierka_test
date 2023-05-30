@@ -41,6 +41,8 @@ class HomePage extends StatefulWidget {
 
 
 
+
+
 //
 // baza danych!!!!!!!!!!!!!!!!
 //
@@ -49,6 +51,12 @@ class _HomePageState extends State<HomePage> {
 
   List<ParseObject> results = <ParseObject>[];
   double selectedDistance = 3000;
+
+
+
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -102,6 +110,11 @@ class _HomePageState extends State<HomePage> {
                         context,
                         MaterialPageRoute(builder: (context) => DisplayPage()),
                       );
+
+
+
+
+
                     },
                   ))
             ],
@@ -128,12 +141,13 @@ class _SavePageState extends State<SavePage> {
     final Dane = ParseObject("Zgloszenie")
       ..set("Opis", Descriptrion)..set("Kategoria", Category);
     await Dane.save();
+
   }
 
   //Zdjęcia!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
-  bool isLoading = false;
+
   PickedFile? pickedFile;
 
   var zmienna = 0;
@@ -145,6 +159,9 @@ class _SavePageState extends State<SavePage> {
 
 //Lista
 
+  bool isLoading = false;
+
+
   List<String> items = [
     "Drogowe",
     "Pogoda",
@@ -152,7 +169,7 @@ class _SavePageState extends State<SavePage> {
     "Zagospodarowanie terenu",
     "Inne"
   ];
-  String? selectedItem = "Drogowe";
+  String? selectedItem = "Inne";
 
 
   List<ParseObject> results = <ParseObject>[];
@@ -322,6 +339,7 @@ class _SavePageState extends State<SavePage> {
                 height: 50,
                 child: (
                     TextFormField(
+
                       textAlign: TextAlign.center,
                       controller: Opis,
                       decoration: InputDecoration(
@@ -355,7 +373,7 @@ class _SavePageState extends State<SavePage> {
                         } else {
                           parseFile = ParseFile(File(pickedFile!.path));
                         }
-                        final Dane = ParseObject('Zgloszenie')
+                        final Dane = ParseObject('Foti')
                           ..set('file', parseFile);
                         await Dane.save();
                         doUserLogin(
@@ -379,67 +397,90 @@ class _SavePageState extends State<SavePage> {
 
 }
 
+class Zgloszenie {
+  final String id;
+  final String nazwa;
+  final String opis;
+  final DateTime date;
+
+  Zgloszenie({required this.id, required this.nazwa, required this.opis,required this.date});
+}
+class ZgloszenieListItem extends StatelessWidget {
+  final Zgloszenie zgloszenie;
+
+  const ZgloszenieListItem({required this.zgloszenie});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: (){},
+      title: Text(zgloszenie.nazwa),
+      subtitle: Text(zgloszenie.opis),
+
+
+
+    );
+  }
+}
+
+
+
 class DisplayPage extends StatefulWidget {
   @override
   _DisplayPageState createState() => _DisplayPageState();
 }
 
 class _DisplayPageState extends State<DisplayPage> {
+  List<Zgloszenie> zgloszenia = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchData();
+  }
+
+  Future<void> fetchData() async {
+    final queryBuilder = QueryBuilder<ParseObject>(ParseObject('Zgloszenie'));
+
+    final response = await queryBuilder.query();
+
+    final items = response.results?.map<Zgloszenie>((result) {
+      final id = result.objectId!;
+      final nazwa = result.get<String>('Kategoria')!;
+      final opis = result.get<String>('Opis')!;
+      final date = result.get<DateTime>('createdAt')!;
+
+      return Zgloszenie(id: id, nazwa: nazwa, opis: opis, date: date);
+    }).toList();
+
+    setState(() {
+      zgloszenia = items!;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: Text("Przesłane zgłoszenia"),
-        ),
-        body: FutureBuilder<List<ParseObject>>(
-            future: getGalleryList(),
-            builder: (context, snapshot) {
-              switch (snapshot.connectionState) {
-                case ConnectionState.none:
-                case ConnectionState.waiting:
-                  return Center(
-                    child: Container(
-                        width: 100,
-                        height: 100,
-                        child: CircularProgressIndicator()),
-                  );
-                default:
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Text("Error..."),
-                    );
-                  } else {
-                    return ListView.builder(
-                        padding: const EdgeInsets.only(top: 8),
-                        itemCount: snapshot.data!.length,
-                        itemBuilder: (context, index) {
-                          ParseObject? varKategoira =
-                          snapshot.data![index].get<ParseFileBase>('Kategoira');
-                          return List<ParseObject>,
-                          ParseFileBase? varFile =
-                          snapshot.data![index].get<ParseFileBase>('file');
-
-
-                          return Image.network(
-                          varFile!.url!,
-                          width: 200,
-                          height: 200,
-                          fit: BoxFit.fitHeight,
-                          );
-
-
-                          });
-                  }
-
-
-              }
-            }
-        )
-
-
-
+      appBar: AppBar(
+        title: Text('Zgłoszenia'),
+      ),
+      body: ListView.builder(
+        itemCount: zgloszenia.length,
+        itemBuilder: (context, index) {
+          final zgloszenie = zgloszenia[index];
+          return ZgloszenieListItem(zgloszenie: zgloszenie);
+        },
+      ),
     );
   }
+
+}
+
+
+
+
+/*
+
   Future<List<ParseObject>> getGalleryList() async {
     QueryBuilder<ParseObject> queryZgloszenie =
     QueryBuilder<ParseObject>(ParseObject('Zgloszenie'))
@@ -447,14 +488,14 @@ class _DisplayPageState extends State<DisplayPage> {
     final ParseResponse apiResponse = await queryZgloszenie.query();
 
     if (apiResponse.success && apiResponse.results != null) {
-      return apiResponse.results as List<ParseObject>;
-    } else {
+      setState(() {
+        reporting.addAll(apiResponse.results! as Iterable<ParseObject>);
+      });
+    } else {print(apiResponse.error?.message);
       return [];
     }
   }
-}
-
-
+ */
 
 class Message {
   static void showSuccess(
