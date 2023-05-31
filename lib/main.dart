@@ -1,18 +1,19 @@
 
 import 'dart:async';
 import 'dart:io';
-
-
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_osm_plugin/flutter_osm_plugin.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-
-
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:location/location.dart';
 import 'package:parse_server_sdk/parse_server_sdk.dart';
+import 'MapScreen.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,12 +37,6 @@ class HomePage extends StatefulWidget {
   @override
   _HomePageState createState() => _HomePageState();
 }
-
-
-
-
-
-
 
 //
 // baza danych!!!!!!!!!!!!!!!!
@@ -123,6 +118,14 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+
+//Mapa
+
+
+
+
+
+
 class SavePage extends StatefulWidget {
   @override
   _SavePageState createState() => _SavePageState();
@@ -159,7 +162,7 @@ class _SavePageState extends State<SavePage> {
 
 //Lista
 
-  bool isLoading = false;
+bool isLoading = false;
 
 
   List<String> items = [
@@ -195,21 +198,17 @@ class _SavePageState extends State<SavePage> {
               ),
 
               //Mapa
-
-              ElevatedButton(
-                child: Text("Wybierz miejsce zdarzenia"),
-                onPressed: () async {
-                  var markerMap = await showSimplePickerLocation(
-                      context: context,
-
-                      isDismissible: true,
-                      title: "Wybierz miejsce zdarzenia",
-                      textConfirmPicker: "Wybierz",
-                      initCurrentUserPosition: true,
-                      initZoom: 15
-                  );
+             ElevatedButton(
+              child: Text('Wybierz lokalizacje'),
+              style: ElevatedButton.styleFrom(primary: Colors.blue),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => MapScreen()),
+                );
                 },
-              ),
+            ),
+
 
               SizedBox(
                 height: 16,
@@ -354,6 +353,7 @@ class _SavePageState extends State<SavePage> {
               SizedBox(
                 height: 16,
               ),
+
               Container(
                 height: 50,
                 child: (
@@ -376,9 +376,9 @@ class _SavePageState extends State<SavePage> {
                         final Dane = ParseObject('Foti')
                           ..set('file', parseFile);
                         await Dane.save();
-                        doUserLogin(
 
-                        );
+                        doUserLogin();
+
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (context) => HomePage()),
@@ -550,3 +550,4 @@ class Message {
     );
   }
 }
+
