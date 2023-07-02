@@ -1,39 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:location/location.dart';
 import 'package:latlong2/latlong.dart';
-import 'dart:async';
-import 'package:flutter_osm_plugin/flutter_osm_plugin.dart';
-import 'package:parse_server_sdk/parse_server_sdk.dart';
-import 'package:test2/main.dart';
-void main()async {
-  WidgetsFlutterBinding.ensureInitialized();
-  final keyApplicationId = 'uq3mIDo6JrLvcUXVIr8PUU56gTXbMFtqM2kuPPga';
-  final keyClientKey = 'jcYVbSnDf2phLSJJV4RYMb3LgU2t84KUb6vOV0Ge';
-  final keyParseServerUrl = 'https://parseapi.back4app.com';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-  await Parse().initialize(keyApplicationId, keyParseServerUrl,
-      clientKey: keyClientKey, debug: true);
-}
+import 'package:parse_server_sdk/parse_server_sdk.dart';
 
 class LocationData {
   double latitude;
   double longitude;
 
   LocationData({required this.latitude, required this.longitude});
-}
-
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Map Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: MapScreen(),
-    );
-  }
 }
 
 class MapScreen extends StatefulWidget {
@@ -43,47 +20,55 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   LocationData? currentLocation;
-  Location location = Location();
+  late Position currentPosition;
+  MapController mapController = MapController();
 
   @override
   void initState() {
     super.initState();
-    getLocation();
+    getLocationPermission();
+  }
+
+  Future<void> getLocationPermission() async {
+    // Check if location permissions are already granted
+    PermissionStatus status = await Permission.locationWhenInUse.status;
+    if (status.isGranted) {
+      // If permissions are granted, get the location
+      await getLocation();
+    } else {
+      // If permissions are not granted, request them from the user
+      PermissionStatus newStatus = await Permission.locationWhenInUse.request();
+      if (newStatus.isGranted) {
+        // If the user grants permissions, get the location
+        await getLocation();
+      }
+    }
   }
 
   Future<void> getLocation() async {
-    bool serviceEnabled;
-    PermissionStatus permissionGranted;
-
-    // Check if location services are enabled
-    serviceEnabled = await location.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await location.requestService();
-      if (!serviceEnabled) {
-        return;
-      }
+    try {
+      currentPosition = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+      setState(() {
+        currentLocation = LocationData(
+          latitude: currentPosition.latitude,
+          longitude: currentPosition.longitude,
+        );
+      });
+      mapController.move(
+        LatLng(
+          currentLocation!.latitude,
+          currentLocation!.longitude,
+        ),
+        13.0,
+      );
+    } catch (e) {
+      print('Error getting location: $e');
     }
-
-    // Check and request location permissions
-    permissionGranted = await location.hasPermission();
-    if (permissionGranted == PermissionStatus.denied) {
-      permissionGranted = await location.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) {
-        return;
-      }
-    }
-
-    // Get the current user location
-    LocationData locationData = (await location.getLocation()) as LocationData;
-    setState(() {
-      currentLocation = LocationData(latitude: locationData.latitude!, longitude: locationData.longitude!);
-    });
   }
 
   Future<void> saveLocation(LocationData locationData) async {
-
     final ParseObject newLocation = ParseObject('Location')
-
       ..set('latitude', locationData.latitude)
       ..set('longitude', locationData.longitude);
 
@@ -103,12 +88,23 @@ class _MapScreenState extends State<MapScreen> {
       ),
       body: FlutterMap(
         options: MapOptions(
-          center: LatLng(currentLocation?.latitude ?? 0.0, currentLocation?.longitude ?? 0.0),
+          center: LatLng(
+            currentLocation?.latitude ?? 0.0,
+            currentLocation?.longitude ?? 0.0,
+          ),
           zoom: 13.0,
-          onTap: (tapPosition, LatLng latLng) {
+          onTap: (tapPosition, latLng) {
             setState(() {
-              currentLocation = LocationData(latitude: latLng.latitude, longitude: latLng.longitude);
+              currentLocation = LocationData(
+                latitude: latLng.latitude,
+                longitude: latLng.longitude,
+              );
             });
+          },
+          onPositionChanged: (MapPosition position, bool hasGesture) {
+            if (hasGesture) {
+              currentLocation = null;
+            }
           },
         ),
         children: [
@@ -121,7 +117,10 @@ class _MapScreenState extends State<MapScreen> {
               Marker(
                 width: 80.0,
                 height: 80.0,
-                point: LatLng(currentLocation?.latitude ?? 0.0, currentLocation?.longitude ?? 0.0),
+                point: LatLng(
+                  currentLocation?.latitude ?? 0.0,
+                  currentLocation?.longitude ?? 0.0,
+                ),
                 builder: (ctx) => Container(
                   child: Icon(
                     Icons.location_on,
@@ -132,9 +131,15 @@ class _MapScreenState extends State<MapScreen> {
             ],
           ),
         ],
+        mapController: mapController, // Set the mapController
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
+          if (currentLocation != null) {
+            saveLocation(currentLocation!);
+          } else {
+            print('Location data is null');
+          }
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => SavePage()),
@@ -145,5 +150,3 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 }
-
-
